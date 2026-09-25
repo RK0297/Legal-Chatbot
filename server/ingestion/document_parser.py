@@ -11,35 +11,57 @@ class DocumentParser:
     """Parses legal documents (PDF, TXT, MD) and extracts clean normalized text."""
 
     @staticmethod
+    def clean_text(text: str) -> str:
+        """Sanitize extracted text to remove CID codes, non-printable characters, and excess whitespace."""
+        if not text:
+            return ""
+        # 1. Remove non-printable / control chars except \n, \t, \r
+        text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]", "", text)
+        # 2. Remove CID font artifacts: (cid:123)
+        text = re.sub(r"\(cid:\d+\)", " ", text)
+        # 3. Fix broken hyphenation at line breaks: "arbitra-\ntion" -> "arbitration"
+        text = re.sub(r"(\w+)-\n(\w+)", r"\1\2", text)
+        # 4. Collapse multiple spaces / horizontal tabs
+        text = re.sub(r"[ \t]+", " ", text)
+        # 5. Normalize excess newlines (maximum two consecutive)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        return text.strip()
+
+    @staticmethod
     def parse_pdf_bytes(file_bytes: bytes, filename: str) -> Dict:
-        """Extract text from PDF byte stream."""
+        """Extract text from PDF byte stream prioritizing PyMuPDF (fitz) for high fidelity."""
         text_pages = []
         page_count = 0
 
-        # Attempt PyPDF first
+        # Attempt PyMuPDF (fitz) first for accurate font mapping and clean extraction
         try:
-            from pypdf import PdfReader
-            reader = PdfReader(io.BytesIO(file_bytes))
-            page_count = len(reader.pages)
-            for page_idx, page in enumerate(reader.pages, 1):
-                page_text = page.extract_text() or ""
-                if page_text.strip():
-                    text_pages.append(f"[Page {page_idx}]\n{page_text.strip()}")
-        except Exception as e:
-            logger.warning(f"pypdf extraction error on {filename}: {e}. Trying fitz/PyMuPDF...")
+            import fitz
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            page_count = len(doc)
+            for page_idx, page in enumerate(doc, 1):
+                page_text = page.get_text("text") or ""
+                cleaned = DocumentParser.clean_text(page_text)
+                if cleaned:
+                    text_pages.append(f"[Page {page_idx}]\n{cleaned}")
+        except Exception as e_fitz:
+            logger.warning(f"PyMuPDF extraction issue on {filename}: {e_fitz}. Falling back to pypdf...")
             try:
-                import fitz
-                doc = fitz.open(stream=file_bytes, filetype="pdf")
-                page_count = len(doc)
-                for page_idx, page in enumerate(doc, 1):
-                    page_text = page.get_text() or ""
-                    if page_text.strip():
-                        text_pages.append(f"[Page {page_idx}]\n{page_text.strip()}")
-            except Exception as e2:
-                logger.error(f"Both pypdf and fitz failed to parse {filename}: {e2}")
-                raise ValueError(f"Could not extract text from PDF '{filename}': {str(e2)}")
+                from pypdf import PdfReader
+                reader = PdfReader(io.BytesIO(file_bytes))
+                page_count = len(reader.pages)
+                for page_idx, page in enumerate(reader.pages, 1):
+                    page_text = page.extract_text() or ""
+                    cleaned = DocumentParser.clean_text(page_text)
+                    if cleaned:
+                        text_pages.append(f"[Page {page_idx}]\n{cleaned}")
+            except Exception as e_pdf:
+                logger.error(f"Both PyMuPDF and pypdf failed to parse {filename}: {e_pdf}")
+                raise ValueError(f"Could not extract text from PDF '{filename}': {str(e_pdf)}")
 
         full_text = "\n\n".join(text_pages)
+        if not full_text.strip():
+            raise ValueError(f"The PDF '{filename}' contains no readable text. Ensure it is not an image-only scan.")
+
         title = Path(filename).stem.replace("_", " ").replace("-", " ").title()
 
         return {
@@ -66,8 +88,10 @@ class DocumentParser:
         if not decoded_text:
             raise ValueError(f"Failed to decode text file '{filename}' with standard encodings.")
 
-        # Clean multiple trailing linebreaks
-        cleaned_text = re.sub(r"\n{3,}", "\n\n", decoded_text.strip())
+        cleaned_text = DocumentParser.clean_text(decoded_text)
+        if not cleaned_text:
+            raise ValueError(f"The text file '{filename}' contains no readable content.")
+
         title = Path(filename).stem.replace("_", " ").replace("-", " ").title()
 
         return {

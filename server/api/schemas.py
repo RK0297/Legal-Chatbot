@@ -2,8 +2,9 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 
 class ChatRequest(BaseModel):
-    query: str = Field(..., min_length=1, max_length=1000, description="User legal query")
+    query: str = Field(..., min_length=1, max_length=5000, description="User legal query")
     conversation_id: Optional[str] = Field(None, description="Session ID for context continuation")
+    document_id: Optional[str] = Field(None, description="Optional ID of attached document for focused legal analysis")
     top_k: Optional[int] = Field(5, ge=1, le=10, description="Number of legal documents to retrieve")
     enable_rerank: Optional[bool] = Field(True, description="Enable Cross-Encoder re-ranking")
 
@@ -99,6 +100,7 @@ class DocumentUploadResponse(BaseModel):
     total_pages: int
     char_count: int
     chunks_created: int
+    preview: Optional[str] = None
     total_in_vector_db: int
     total_in_bm25: int
     timestamp: str

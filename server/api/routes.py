@@ -97,12 +97,13 @@ async def get_stats(vdb: VectorStore = Depends(get_vector_store)):
 async def chat(request: ChatRequest, rag: RAGService = Depends(get_rag_service)):
     """Process legal query through Self-Querying, Hybrid Retrieval (BM25 + Dense + RRF + Cross-Encoder), and Groq Llama-70B."""
     try:
-        logger.info(f"Received query: '{request.query[:80]}...'")
+        logger.info(f"Received query: '{request.query[:80]}...' (doc_id={request.document_id})")
         result = rag.query(
             query=request.query,
             top_k=request.top_k or 5,
             conversation_id=request.conversation_id,
             enable_rerank=request.enable_rerank if request.enable_rerank is not None else True,
+            document_id=request.document_id,
         )
         return ChatResponse(**result)
     except Exception as e:
@@ -113,13 +114,14 @@ async def chat(request: ChatRequest, rag: RAGService = Depends(get_rag_service))
 async def chat_stream(request: ChatRequest, rag: RAGService = Depends(get_rag_service)):
     """Stream legal analysis token-by-token using Server-Sent Events (SSE)."""
     try:
-        logger.info(f"Streaming query: '{request.query[:80]}...'")
+        logger.info(f"Streaming query: '{request.query[:80]}...' (doc_id={request.document_id})")
         def event_stream():
             for event in rag.query_stream(
                 query=request.query,
                 top_k=request.top_k or 5,
                 conversation_id=request.conversation_id,
                 enable_rerank=request.enable_rerank if request.enable_rerank is not None else True,
+                document_id=request.document_id,
             ):
                 yield f"data: {json.dumps(event)}\n\n"
 
@@ -310,6 +312,7 @@ async def upload_document(
             total_pages=parsed["page_count"],
             char_count=parsed["char_count"],
             chunks_created=len(chunks),
+            preview=parsed["text"][:300] + ("..." if len(parsed["text"]) > 300 else ""),
             total_in_vector_db=vdb.collection.count(),
             total_in_bm25=len(hybrid.bm25_index.corpus_ids),
             timestamp=datetime.now().isoformat(),

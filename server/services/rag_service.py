@@ -63,44 +63,80 @@ class RAGService:
             "candidates": candidates,
         }
 
+    def get_attached_document(self, document_id: str) -> Optional[Dict]:
+        """Retrieve chunks and metadata for an attached document from vector store."""
+        if not document_id:
+            return None
+        try:
+            res = self.vector_store.collection.get(where={"id": document_id})
+            if res and res.get("documents") and len(res["documents"]) > 0:
+                docs = res["documents"]
+                metas = res.get("metadatas", [])
+                title = metas[0].get("title", "Attached Document") if metas else "Attached Document"
+                doc_type = metas[0].get("doc_type", "Document") if metas else "PDF"
+                combined_text = "\n\n".join(docs)
+                return {
+                    "document_id": document_id,
+                    "title": title,
+                    "doc_type": doc_type,
+                    "content": combined_text,
+                    "chunk_count": len(docs),
+                }
+        except Exception as e:
+            logger.warning(f"Failed to fetch attached document context for {document_id}: {e}")
+        return None
+
     def build_system_prompt(
         self,
         context_candidates: List[Dict],
         use_rag: bool = True,
         detected_language: str = "English",
+        attached_doc: Optional[Dict] = None,
     ) -> str:
         """Construct system persona, context prompt, and language directives."""
-        if use_rag:
+        if use_rag or attached_doc:
             system_prompt = (
                 "You are कानून (Kanoon), an authoritative AI legal assistant specializing in Indian jurisprudence, "
                 "the Constitution of India, Bharatiya Nyaya Sanhita (BNS / IPC), Bharatiya Nagarik Suraksha Sanhita (BNSS / CrPC), "
                 "Code of Civil Procedure (CPC), and landmark High Court / Supreme Court precedents.\n\n"
                 "Operational Guidelines:\n"
                 "1. Answer clearly, authoritatively, and comprehensively in a structured, conversational manner.\n"
-                "2. Ground your legal assertions directly on the provided Indian law precedents below.\n"
+                "2. Ground your legal assertions directly on the provided statutory precedents and/or attached document.\n"
                 "3. Cite Reference IDs (e.g., [Reference 1]) when referencing specific principles, acts, or procedures.\n"
-                "4. Maintain strict statutory accuracy while keeping explanations accessible to ordinary citizens.\n"
+                "4. Maintain strict statutory accuracy while keeping explanations accessible to citizens.\n"
                 "5. Remind users that this consultation provides legal information and does not constitute an attorney-client relationship.\n\n"
-                "--- CONTEXT FROM INDIAN LEGAL PRECEDENTS DATABASE ---\n"
             )
 
-            for i, item in enumerate(context_candidates, 1):
-                meta = item.get("metadata", {})
-                doc_id = item.get("id") or meta.get("id", str(i))
-                instruction = meta.get("instruction", "")
-                response = meta.get("response", "")
-                content = item.get("content", "")
+            if attached_doc:
+                system_prompt += (
+                    f"--- USER ATTACHED DOCUMENT: {attached_doc['title']} ({attached_doc['doc_type']}) ---\n"
+                    f"{attached_doc['content'][:8000]}\n"
+                    f"--- END OF ATTACHED DOCUMENT ---\n\n"
+                    f"ATTACHED DOCUMENT INSTRUCTIONS:\n"
+                    f"- The user attached '{attached_doc['title']}'. Analyze this document directly in response to the user's inquiry.\n"
+                    f"- Cite specific clauses, terms, or sections from the attached text where applicable.\n"
+                    f"- Cross-reference the document with applicable Indian statutory laws and regulations.\n\n"
+                )
 
-                if instruction and response:
-                    system_prompt += (
-                        f"\n[Reference {i}] (ID: {doc_id}):\n"
-                        f"Legal Query: {instruction}\n"
-                        f"Statutory Answer: {response}\n"
-                    )
-                else:
-                    system_prompt += f"\n[Reference {i}] (ID: {doc_id}):\n{content}\n"
+            if context_candidates:
+                system_prompt += "--- CONTEXT FROM INDIAN LEGAL PRECEDENTS DATABASE ---\n"
+                for i, item in enumerate(context_candidates, 1):
+                    meta = item.get("metadata", {})
+                    doc_id = item.get("id") or meta.get("id", str(i))
+                    instruction = meta.get("instruction", "")
+                    response = meta.get("response", "")
+                    content = item.get("content", "")
 
-            system_prompt += "\n--- END OF CONTEXT ---\n"
+                    if instruction and response:
+                        system_prompt += (
+                            f"\n[Reference {i}] (ID: {doc_id}):\n"
+                            f"Legal Query: {instruction}\n"
+                            f"Statutory Answer: {response}\n"
+                        )
+                    else:
+                        system_prompt += f"\n[Reference {i}] (ID: {doc_id}):\n{content}\n"
+
+                system_prompt += "\n--- END OF CONTEXT ---\n"
         else:
             system_prompt = (
                 "You are कानून (Kanoon), an expert AI legal assistant with deep knowledge of Indian law and constitutional doctrines.\n\n"
@@ -153,10 +189,14 @@ class RAGService:
         top_k: int = 5,
         conversation_id: Optional[str] = None,
         enable_rerank: bool = True,
+        document_id: Optional[str] = None,
     ) -> Dict:
         """Execute full Advanced Hybrid RAG query cycle with Groq Llama-70B."""
         if not conversation_id:
             conversation_id = str(uuid.uuid4())
+
+        # Step 0: Check for user-attached document
+        attached_doc = self.get_attached_document(document_id) if document_id else None
 
         # Step 1: Self-Query & Multi-Stage Hybrid Retrieval
         retrieval_output = self.retrieve_context(query, top_k=top_k, enable_rerank=enable_rerank)
@@ -183,14 +223,18 @@ class RAGService:
             avg_score = sum(scores) / len(scores) if scores else 0.0
             use_rag = len(candidates) > 0
 
+        if attached_doc:
+            use_rag = True
+
         mode = "advanced_rag" if use_rag else "llm"
-        logger.info(f"Query Mode: {mode.upper()} [{detected_lang}] (Retrieved: {len(candidates)} items, Avg Score: {avg_score:.3f})")
+        logger.info(f"Query Mode: {mode.upper()} [{detected_lang}] (Attached: {bool(attached_doc)}, Retrieved: {len(candidates)} items, Avg Score: {avg_score:.3f})")
 
         # Step 4: Prompt Construction
         system_content = self.build_system_prompt(
             context_candidates=candidates if use_rag else [],
             use_rag=use_rag,
             detected_language=detected_lang,
+            attached_doc=attached_doc,
         )
 
         messages: List[Dict[str, str]] = [{"role": "system", "content": system_content}]
@@ -220,6 +264,17 @@ class RAGService:
 
         # Step 8: Format Sources
         sources = []
+        if attached_doc:
+            sources.append({
+                "title": f"Attached: {attached_doc['title']}",
+                "source": f"{attached_doc['doc_type']} ({attached_doc['chunk_count']} sections)",
+                "category": "User Uploaded Document",
+                "url": "",
+                "preview": attached_doc["content"][:280] + "..." if len(attached_doc["content"]) > 280 else attached_doc["content"],
+                "retriever": "attached_document",
+                "score": 1.0,
+            })
+
         if use_rag:
             for item in candidates:
                 meta = item.get("metadata", {})
@@ -253,6 +308,7 @@ class RAGService:
         top_k: int = 5,
         conversation_id: Optional[str] = None,
         enable_rerank: bool = True,
+        document_id: Optional[str] = None,
     ) -> Generator[Dict, None, None]:
         """Stream conversational legal analysis token-by-token with Guardrails and Indic support.
 
@@ -264,6 +320,9 @@ class RAGService:
         """
         if not conversation_id:
             conversation_id = str(uuid.uuid4())
+
+        # Step 0: Check for user-attached document
+        attached_doc = self.get_attached_document(document_id) if document_id else None
 
         # Step 1: Self-Query & Multi-Stage Hybrid Retrieval
         retrieval_output = self.retrieve_context(query, top_k=top_k, enable_rerank=enable_rerank)
@@ -289,11 +348,25 @@ class RAGService:
             avg_score = sum(scores) / len(scores) if scores else 0.0
             use_rag = len(candidates) > 0
 
+        if attached_doc:
+            use_rag = True
+
         mode = "advanced_rag" if use_rag else "llm"
-        logger.info(f"Stream Query Mode: {mode.upper()} [{detected_lang}] (Retrieved: {len(candidates)} items, Avg Score: {avg_score:.3f})")
+        logger.info(f"Stream Query Mode: {mode.upper()} [{detected_lang}] (Attached: {bool(attached_doc)}, Retrieved: {len(candidates)} items, Avg Score: {avg_score:.3f})")
 
         # Step 4: Format Sources
         sources = []
+        if attached_doc:
+            sources.append({
+                "title": f"Attached: {attached_doc['title']}",
+                "source": f"{attached_doc['doc_type']} ({attached_doc['chunk_count']} sections)",
+                "category": "User Uploaded Document",
+                "url": "",
+                "preview": attached_doc["content"][:280] + "..." if len(attached_doc["content"]) > 280 else attached_doc["content"],
+                "retriever": "attached_document",
+                "score": 1.0,
+            })
+
         if use_rag:
             for item in candidates:
                 meta = item.get("metadata", {})
@@ -318,6 +391,7 @@ class RAGService:
             "similarity_score": avg_score,
             "emergency_alert": emergency_alert,
             "detected_language": detected_lang,
+            "attached_document": {"title": attached_doc["title"], "doc_type": attached_doc["doc_type"]} if attached_doc else None,
             "timestamp": datetime.now().isoformat(),
         }
 
@@ -326,6 +400,7 @@ class RAGService:
             context_candidates=candidates if use_rag else [],
             use_rag=use_rag,
             detected_language=detected_lang,
+            attached_doc=attached_doc,
         )
 
         messages: List[Dict[str, str]] = [{"role": "system", "content": system_content}]
