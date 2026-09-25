@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>कानून (Kanoon) | AI Legal Assistant for Indian Law</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            serif: ['Cinzel', 'serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            kanoon: {
+              gold: '#D4AF37',
+              darkgold: '#B8860B',
+              bg: '#0B0F19',
+              card: '#111827',
+              border: '#1F2937',
+              accent: '#3B82F6',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #0B0F19; color: #F3F4F6; font-family: 'Inter', sans-serif; }
+    .prose-legal p { margin-bottom: 0.75rem; line-height: 1.65; }
+    .prose-legal ul, .prose-legal ol { margin-left: 1.25rem; margin-bottom: 0.75rem; }
+    .prose-legal li { margin-bottom: 0.35rem; }
+    .prose-legal strong { color: #FBBF24; font-weight: 600; }
+    .prose-legal h1, .prose-legal h2, .prose-legal h3 { color: #F9FAFB; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; }
+    .cursor-blink { display: inline-block; width: 8px; height: 16px; background-color: #D4AF37; animation: blink 1s infinite; vertical-align: middle; margin-left: 2px; }
+    @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0B0F19; }
+    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+  </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden text-gray-100">
+
+  <!-- Header -->
+  <header class="flex items-center justify-between px-6 py-3.5 bg-gray-900/90 border-b border-gray-800 backdrop-blur-md z-30 shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-yellow-400 flex items-center justify-center shadow-lg shadow-amber-500/20 text-gray-950 font-bold text-xl">
+        ⚖️
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="font-serif text-lg tracking-wide text-amber-400 font-bold">कानून <span class="text-white text-base font-sans font-medium">Kanoon AI</span></h1>
+          <span class="px-2 py-0.5 text-xs font-mono bg-amber-500/10 text-amber-300 border border-amber-500/30 rounded-full">v2.0 LPU RAG</span>
+        </div>
+        <p class="text-xs text-gray-400">Indian Jurisprudence, Constitution & Hybrid Precedents</p>
+      </div>
+    </div>
+
+    <!-- Center Badges -->
+    <div class="hidden md:flex items-center space-x-2 text-xs">
+      <div id="status-badge" class="flex items-center space-x-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-full">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span id="status-text">Vector DB Active</span>
+      </div>
+      <div class="px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-full">
+        <i class="fa-solid fa-bolt mr-1 text-yellow-400"></i> Groq Accelerated
+      </div>
+      <div class="px-3 py-1 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-full">
+        <i class="fa-solid fa-shield mr-1"></i> Bar Council Guardrails
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex items-center space-x-3">
+      <button onclick="openUploadModal()" class="flex items-center space-x-2 px-3.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-amber-300 border border-amber-500/30 hover:border-amber-500/60 rounded-lg text-xs font-medium transition shadow-sm">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <span>Upload Brief / FIR</span>
+      </button>
+      <a href="/docs" target="_blank" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-xs font-mono transition">
+        <i class="fa-solid fa-book-bookmark mr-1"></i> API Docs
+      </a>
+      <button onclick="clearChat()" class="p-2 text-gray-400 hover:text-gray-200 transition" title="Clear Chat">
+        <i class="fa-solid fa-arrow-rotate-right"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Chat Workspace -->
+  <main class="flex-1 flex flex-col overflow-hidden relative">
+
+    <!-- Emergency Helpline Alert Bar (Hidden by default) -->
+    <div id="emergency-alert" class="hidden px-6 py-2.5 bg-red-950/80 border-b border-red-700 text-red-200 text-xs flex items-center justify-between shrink-0">
+      <div class="flex items-center space-x-3">
+        <span class="flex h-2.5 w-2.5 relative">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+        </span>
+        <span id="emergency-text" class="font-medium">Emergency Detected: Quick Assistance Active</span>
+      </div>
+      <div id="emergency-pills" class="flex items-center space-x-2"></div>
+    </div>
+
+    <!-- Messages Container -->
+    <div id="chat-container" class="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6">
+      
+      <!-- Welcome Message Card -->
+      <div class="max-w-3xl mx-auto bg-gray-900/60 border border-gray-800/80 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
+        <div class="flex items-start space-x-4">
+          <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-2xl text-amber-400 shrink-0">
+            🏛️
+          </div>
+          <div class="flex-1">
+            <h2 class="text-lg font-serif font-bold text-amber-300 mb-1">Namaste. I am कानून (Kanoon).</h2>
+            <p class="text-sm text-gray-300 mb-4 leading-relaxed">
+              Your authoritative AI legal companion grounded in the <strong>Constitution of India</strong>, <strong>Bharatiya Nyaya Sanhita (BNS / IPC)</strong>, <strong>BNSS / CrPC</strong>, Civil Procedure Code, and High Court / Supreme Court precedents.
+            </p>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs mb-4">
+              <div class="p-2.5 bg-gray-800/50 rounded-lg border border-gray-700/50 flex items-center space-x-2">
+                <i class="fa-solid fa-language text-blue-400"></i>
+                <span class="text-gray-300">Multi-Lingual: Hindi, Hinglish, & English</span>
+              </div>
+              <div class="p-2.5 bg-gray-800/50 rounded-lg border border-gray-700/50 flex items-center space-x-2">
+                <i class="fa-solid fa-magnifying-glass text-amber-400"></i>
+                <span class="text-gray-300">Hybrid Search: Dense + BM25 + Re-ranker</span>
+              </div>
+              <div class="p-2.5 bg-gray-800/50 rounded-lg border border-gray-700/50 flex items-center space-x-2">
+                <i class="fa-solid fa-file-contract text-emerald-400"></i>
+                <span class="text-gray-300">Case Ingestion: Dynamic PDF & Brief uploads</span>
+              </div>
+              <div class="p-2.5 bg-gray-800/50 rounded-lg border border-gray-700/50 flex items-center space-x-2">
+                <i class="fa-solid fa-scale-balanced text-purple-400"></i>
+                <span class="text-gray-300">Bar Council Rule 36 Compliant</span>
+              </div>
+            </div>
+
+            <!-- Quick Inquiry Chips -->
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Try asking or click a prompt:</p>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="setQuery('Cheque bounce ho gaya, kya notice bhejna padega?')" class="text-xs px-3 py-1.5 bg-gray-800 hover:bg-gray-700 hover:border-amber-500/40 text-gray-300 border border-gray-700 rounded-lg transition text-left">
+                🇮🇳 <em>Hinglish:</em> Cheque bounce notice procedure
+              </button>
+              <button onclick="setQuery('चेक बाउंस होने पर क्या कानूनी नोटिस भेजना जरूरी है?')" class="text-xs px-3 py-1.5 bg-gray-800 hover:bg-gray-700 hover:border-amber-500/40 text-gray-300 border border-gray-700 rounded-lg transition text-left">
+                🇮🇳 <em>Hindi:</em> चेक बाउंस कानूनी नोटिस
+              </button>
+              <button onclick="setQuery('What are the grounds for anticipatory bail under Section 438 CrPC?')" class="text-xs px-3 py-1.5 bg-gray-800 hover:bg-gray-700 hover:border-amber-500/40 text-gray-300 border border-gray-700 rounded-lg transition text-left">
+                🌐 Section 438 Anticipatory Bail
+              </button>
+              <button onclick="setQuery('Padosi ne zameen par illegal kabza kar liya, kya injunction le sakte hain?')" class="text-xs px-3 py-1.5 bg-gray-800 hover:bg-gray-700 hover:border-amber-500/40 text-gray-300 border border-gray-700 rounded-lg transition text-left">
+                🇮🇳 Land Encroachment & Injunction
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Input Box Area -->
+    <div class="p-4 bg-gray-900/90 border-t border-gray-800 shrink-0">
+      <div class="max-w-3xl mx-auto">
+        <form id="chat-form" onsubmit="handleSend(event)" class="relative flex items-end bg-gray-800/90 border border-gray-700/80 focus-within:border-amber-500/60 rounded-xl shadow-lg transition">
+          <textarea
+            id="query-input"
+            rows="1"
+            placeholder="Describe your legal query in English, Hindi, or Hinglish..."
+            class="flex-1 bg-transparent px-4 py-3.5 text-sm text-gray-100 placeholder-gray-400 focus:outline-none resize-none max-h-36 overflow-y-auto"
+            onkeydown="handleKeyDown(event)"
+            oninput="autoResize(this)"
+          ></textarea>
+          
+          <div class="flex items-center space-x-2 pr-3 pb-2.5">
+            <button
+              type="button"
+              onclick="openUploadModal()"
+              class="p-2 text-gray-400 hover:text-amber-400 transition rounded-lg hover:bg-gray-700/50"
+              title="Upload legal contract or document"
+            >
+              <i class="fa-solid fa-paperclip"></i>
+            </button>
+            <button
+              type="submit"
+              id="send-btn"
+              class="px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-gray-950 font-semibold rounded-lg text-sm transition flex items-center space-x-1.5 shadow-md shadow-amber-500/20 disabled:opacity-50"
+            >
+              <span>Ask Kanoon</span>
+              <i class="fa-solid fa-arrow-up text-xs"></i>
+            </button>
+          </div>
+        </form>
+
+        <!-- Mandatory Disclaimer Footer -->
+        <p class="text-[11px] text-gray-500 text-center mt-2.5 leading-tight">
+          ⚖️ <strong>Advocates Act, 1961 Notice:</strong> Kanoon AI provides informational assistance based on statutory data and does not constitute formal legal counsel.
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Upload Modal -->
+  <div id="upload-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-800">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold">
+            <i class="fa-solid fa-file-arrow-up"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-gray-100">Upload Legal Brief / Case File</h3>
+            <p class="text-xs text-gray-400">PDF, TXT, or MD (up to 20MB)</p>
+          </div>
+        </div>
+        <button onclick="closeUploadModal()" class="text-gray-400 hover:text-gray-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="upload-form" onsubmit="handleUpload(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 uppercase mb-1.5">Document Category</label>
+          <select id="doc-category" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-amber-500">
+            <option value="Commercial Contract">Commercial Contract / Agreement</option>
+            <option value="Criminal Petition / FIR">Criminal Petition / FIR / Bail Application</option>
+            <option value="Civil Plaint / Suit">Civil Plaint / Property Dispute</option>
+            <option value="Constitutional Writ">Constitutional Writ Petition</option>
+            <option value="General Legal Document" selected>General Legal Document</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 uppercase mb-1.5">Select File</label>
+          <div class="border-2 border-dashed border-gray-700 hover:border-amber-500/50 rounded-xl p-6 text-center cursor-pointer bg-gray-800/40 transition" onclick="document.getElementById('file-input').click()">
+            <i class="fa-solid fa-cloud-arrow-up text-3xl text-amber-400 mb-2"></i>
+            <p id="file-name-label" class="text-sm text-gray-300 font-medium">Click to select PDF or text document</p>
+            <p class="text-xs text-gray-500 mt-1">Text extracted page-by-page and chunked automatically</p>
+            <input type="file" id="file-input" accept=".pdf,.txt,.md,.text" class="hidden" onchange="updateFileName(this)">
+          </div>
+        </div>
+
+        <div id="upload-progress" class="hidden space-y-1.5">
+          <div class="flex justify-between text-xs text-gray-400">
+            <span id="upload-status-text">Parsing and embedding chunks...</span>
+            <span id="upload-percentage">Indexing...</span>
+          </div>
+          <div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
+            <div id="upload-bar" class="bg-gradient-to-r from-amber-500 to-yellow-400 h-full w-2/3 animate-pulse"></div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end space-x-3 pt-3 border-t border-gray-800">
+          <button type="button" onclick="closeUploadModal()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition">Cancel</button>
+          <button type="submit" id="upload-submit-btn" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-gray-950 font-semibold rounded-lg text-sm transition">
+            Process & Index
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let activeConversationId = null;
+
+    function setQuery(text) {
+      const input = document.getElementById('query-input');
+      input.value = text;
+      input.focus();
+      autoResize(input);
+    }
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = (el.scrollHeight) + 'px';
+    }
+
+    function handleKeyDown(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('chat-form').requestSubmit();
+      }
+    }
+
+    function clearChat() {
+      activeConversationId = null;
+      document.getElementById('chat-container').innerHTML = `
+        <div class="text-center py-12 text-gray-500 text-xs">
+          <i class="fa-solid fa-scale-balanced text-3xl text-gray-700 mb-2 block"></i>
+          Chat session cleared. Start a new legal inquiry below.
+        </div>
+      `;
+      document.getElementById('emergency-alert').classList.add('hidden');
+    }
+
+    function openUploadModal() {
+      document.getElementById('upload-modal').classList.remove('hidden');
+    }
+
+    function closeUploadModal() {
+      document.getElementById('upload-modal').classList.add('hidden');
+      document.getElementById('upload-progress').classList.add('hidden');
+      document.getElementById('file-name-label').textContent = 'Click to select PDF or text document';
+      document.getElementById('file-input').value = '';
+    }
+
+    function updateFileName(input) {
+      if (input.files && input.files[0]) {
+        document.getElementById('file-name-label').textContent = input.files[0].name + ` (${(input.files[0].size / 1024).toFixed(1)} KB)`;
+      }
+    }
+
+    async function handleUpload(e) {
+      e.preventDefault();
+      const fileInput = document.getElementById('file-input');
+      const category = document.getElementById('doc-category').value;
+      if (!fileInput.files || !fileInput.files[0]) {
+        alert('Please select a file to upload.');
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('category', category);
+
+      document.getElementById('upload-progress').classList.remove('hidden');
+      document.getElementById('upload-submit-btn').disabled = true;
+
+      try {
+        const resp = await fetch('/api/documents/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await resp.json();
+        if (resp.ok) {
+          alert(`Document '${data.title}' indexed successfully!\nGenerated ${data.chunks_created} chunks into ChromaDB & BM25.`);
+          closeUploadModal();
+        } else {
+          alert(`Upload failed: ${data.detail || 'Server error'}`);
+        }
+      } catch (err) {
+        alert(`Error uploading document: ${err.message}`);
+      } finally {
+        document.getElementById('upload-submit-btn').disabled = false;
+        document.getElementById('upload-progress').classList.add('hidden');
+      }
+    }
+
+    async function handleSend(e) {
+      e.preventDefault();
+      const input = document.getElementById('query-input');
+      const query = input.value.trim();
+      if (!query) return;
+
+      input.value = '';
+      autoResize(input);
+      document.getElementById('send-btn').disabled = true;
+
+      const chatContainer = document.getElementById('chat-container');
+
+      // Append User message
+      const userDiv = document.createElement('div');
+      userDiv.className = 'flex justify-end';
+      userDiv.innerHTML = `
+        <div class="max-w-2xl bg-amber-500/15 border border-amber-500/30 text-gray-100 px-4 py-3 rounded-2xl rounded-tr-sm text-sm shadow-md">
+          <p class="font-medium whitespace-pre-wrap">${escapeHtml(query)}</p>
+        </div>
+      `;
+      chatContainer.appendChild(userDiv);
+
+      // Append Assistant placeholder
+      const botDiv = document.createElement('div');
+      botDiv.className = 'flex justify-start';
+      const botMsgId = 'msg-' + Date.now();
+      botDiv.innerHTML = `
+        <div class="max-w-3xl w-full bg-gray-900/90 border border-gray-800 rounded-2xl rounded-tl-sm p-5 text-sm shadow-lg space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-gray-800/80 text-xs text-gray-400">
+            <div class="flex items-center space-x-2">
+              <span class="text-amber-400 font-serif font-bold">कानून (Kanoon)</span>
+              <span id="${botMsgId}-lang" class="hidden px-2 py-0.5 bg-gray-800 border border-gray-700 text-gray-300 rounded text-[10px]"></span>
+            </div>
+            <div id="${botMsgId}-status" class="flex items-center space-x-1.5 text-amber-400">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+              <span>Retrieving statutes...</span>
+            </div>
+          </div>
+
+          <div id="${botMsgId}-content" class="prose-legal text-gray-200">
+            <span class="cursor-blink"></span>
+          </div>
+
+          <!-- Sources Drawer -->
+          <div id="${botMsgId}-sources" class="hidden pt-3 border-t border-gray-800 text-xs">
+            <p class="font-semibold text-gray-400 mb-1.5 flex items-center">
+              <i class="fa-solid fa-scale-balanced mr-1.5 text-amber-400"></i>
+              Verified Indian Statutory References:
+            </p>
+            <div id="${botMsgId}-sources-list" class="space-y-1.5"></div>
+          </div>
+        </div>
+      `;
+      chatContainer.appendChild(botDiv);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+
+      let fullText = '';
+      const contentEl = document.getElementById(`${botMsgId}-content`);
+      const statusEl = document.getElementById(`${botMsgId}-status`);
+      const langEl = document.getElementById(`${botMsgId}-lang`);
+      const sourcesEl = document.getElementById(`${botMsgId}-sources`);
+      const sourcesListEl = document.getElementById(`${botMsgId}-sources-list`);
+
+      try {
+        const response = await fetch('/api/chat/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: query,
+            conversation_id: activeConversationId,
+            top_k: 5,
+            enable_rerank: true,
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n\n');
+          buffer = lines.pop(); // keep remainder
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const jsonStr = line.substring(6).trim();
+              if (!jsonStr) continue;
+
+              try {
+                const event = JSON.parse(jsonStr);
+
+                if (event.type === 'metadata') {
+                  activeConversationId = event.conversation_id;
+                  statusEl.innerHTML = `<span class="text-emerald-400"><i class="fa-solid fa-check mr-1"></i>Precedents Ranked</span>`;
+                  
+                  if (event.detected_language) {
+                    langEl.textContent = event.detected_language;
+                    langEl.classList.remove('hidden');
+                  }
+
+                  // Handle Emergency Alerts
+                  if (event.emergency_alert) {
+                    showEmergencyBanner(event.emergency_alert);
+                  }
+
+                  // Render Sources
+                  if (event.sources && event.sources.length > 0) {
+                    sourcesEl.classList.remove('hidden');
+                    sourcesListEl.innerHTML = event.sources.map((s, idx) => `
+                      <div class="p-2 bg-gray-800/60 rounded border border-gray-700/60 text-[11px]">
+                        <div class="flex items-center justify-between text-amber-300 font-medium mb-0.5">
+                          <span>[Reference ${idx + 1}] ${escapeHtml(s.title || 'Precedent')}</span>
+                          <span class="text-gray-400 font-mono text-[10px]">${s.category || 'Law'}</span>
+                        </div>
+                        <p class="text-gray-300 line-clamp-2">${escapeHtml(s.preview)}</p>
+                      </div>
+                    `).join('');
+                  }
+                } else if (event.type === 'token') {
+                  fullText += event.delta;
+                  contentEl.innerHTML = marked.parse(fullText) + '<span class="cursor-blink"></span>';
+                  chatContainer.scrollTop = chatContainer.scrollHeight;
+                } else if (event.type === 'done') {
+                  contentEl.innerHTML = marked.parse(fullText);
+                  statusEl.innerHTML = `<span class="text-gray-500 font-mono text-[10px]">LPU Streamed</span>`;
+                }
+              } catch (parseErr) {
+                console.warn('SSE parse error:', parseErr, line);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        contentEl.innerHTML = `<span class="text-red-400"><i class="fa-solid fa-circle-exclamation mr-1"></i> Error: ${err.message}. Please verify your API key and connection.</span>`;
+        statusEl.innerHTML = `<span class="text-red-400">Failed</span>`;
+      } finally {
+        document.getElementById('send-btn').disabled = false;
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    }
+
+    function showEmergencyBanner(em) {
+      const banner = document.getElementById('emergency-alert');
+      const text = document.getElementById('emergency-text');
+      const pills = document.getElementById('emergency-pills');
+
+      text.innerHTML = `<strong>URGENT:</strong> ${escapeHtml(em.category)} Detected.`;
+      pills.innerHTML = em.helplines.map(h => `
+        <a href="tel:${h.number.split('/')[0].trim()}" class="px-2.5 py-1 bg-red-800 hover:bg-red-700 text-white rounded font-mono font-bold transition flex items-center space-x-1">
+          <i class="fa-solid fa-phone text-[10px]"></i>
+          <span>${escapeHtml(h.service)}: ${escapeHtml(h.number)}</span>
+        </a>
+      `).join('');
+
+      banner.classList.remove('hidden');
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+      });
+    }
+
+    // Health check on load
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const res = await fetch('/api/health');
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('status-text').textContent = `${data.vector_database_count} Precedents Indexed`;
+        }
+      } catch (e) {
+        console.warn('Health check failed:', e);
+      }
+    });
+  </script>
+</body>
+</html>

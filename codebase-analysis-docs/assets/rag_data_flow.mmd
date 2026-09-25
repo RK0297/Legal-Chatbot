@@ -1,0 +1,44 @@
+sequenceDiagram
+    autonumber
+    actor User as User Browser
+    participant UI as ChatInterface (React)
+    participant API as ApiService (api.ts)
+    participant FastAPI as FastAPI Server (main.py)
+    participant RAG as RAGPipeline (rag_pipeline.py)
+    participant VDB as VectorDatabase (vector_database.py)
+    participant ST as SentenceTransformer (MiniLM)
+    participant Chroma as ChromaDB ('legal_qa')
+    participant Ollama as Ollama API (:11434/api/generate)
+
+    User->>UI: Types query & submits (Enter / Click Send)
+    UI->>API: sendChatMessage({ query, conversation_id, top_k: 5 })
+    API->>FastAPI: POST /api/chat (JSON payload)
+    
+    FastAPI->>RAG: query(query, top_k=5, conversation_id)
+    Note over RAG: Generates UUID if conversation_id is None
+    
+    RAG->>VDB: search(query, n_results=5)
+    VDB->>ST: encode([query]) -> 384-dim vector
+    ST-->>VDB: query_embedding
+    VDB->>Chroma: collection.query(query_embeddings, n_results=5)
+    Chroma-->>VDB: { documents: [[...]], metadatas: [[...]], distances: [[...]] }
+    VDB-->>RAG: context { documents, metadatas, distances }
+    
+    Note over RAG: avg_distance = sum(distances) / len(distances)<br/>avg_similarity = 1 - avg_distance<br/>use_rag = (avg_similarity >= 0.35)
+    
+    alt use_rag is True (avg_similarity >= 0.35)
+        Note over RAG: Inject System Prompt + Retrieved Q&A Context + Last 3 Turns History
+    else use_rag is False (avg_similarity < 0.35)
+        Note over RAG: Inject General Legal Assistant Prompt (No context) + Last 3 Turns History
+    end
+    
+    RAG->>Ollama: POST /api/generate { model: 'qwen3:8b', prompt, stream: false, options: { temperature: 0.2, num_predict: 1500 } }
+    Ollama-->>RAG: { response: "Generated legal text..." }
+    
+    Note over RAG: update_conversation_history (window max 10 msgs)
+    
+    RAG-->>FastAPI: { response, documents, metadatas, conversation_id, mode, similarity_score }
+    Note over FastAPI: Formats sources list: title, source, category, url, preview
+    FastAPI-->>API: ChatResponse { response, sources, conversation_id, timestamp }
+    API-->>UI: ChatResponse
+    UI->>User: Renders bot answer & source reference cards

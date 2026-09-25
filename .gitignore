@@ -28,6 +28,8 @@ env/
 .env
 .env.local
 .env.*.local
+*.env
+server/.env
 
 # Logs
 *.log
@@ -40,8 +42,12 @@ logs/
 *.sqlite3
 
 # ChromaDB / Vector Database
+server/data/vectordb/
+server/data/bm25/
+scratch/
 backend/data/vectordb/
 backend/models/data/vectordb/
+data/vectordb/
 *.chroma
 
 # Jupyter Notebook

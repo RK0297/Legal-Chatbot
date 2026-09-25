@@ -1,0 +1,28 @@
+services:
+  kanoon-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kanoon-legal-assistant
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_MODEL=${GROQ_MODEL:-openai/gpt-oss-120b}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.2}
+      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-1500}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      - VECTOR_DB_COLLECTION=${VECTOR_DB_COLLECTION:-legal_qa}
+      - RELEVANCE_THRESHOLD=${RELEVANCE_THRESHOLD:-0.35}
+      - ENABLE_BM25=${ENABLE_BM25:-true}
+      - ENABLE_RERANKER=${ENABLE_RERANKER:-true}
+      - ENABLE_SELF_QUERY=${ENABLE_SELF_QUERY:-true}
+      - HOST=0.0.0.0
+      - PORT=8000
+    volumes:
+      - ./server/data/vectordb:/app/server/data/vectordb
+      - ./server/data/bm25:/app/server/data/bm25
+      - ./server/data/raw:/app/server/data/raw
+    env_file:
+      - .env
