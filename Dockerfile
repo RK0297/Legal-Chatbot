@@ -23,7 +23,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy server application code and assets
 COPY server/ ./server/
-COPY codebase-analysis-docs/ ./codebase-analysis-docs/
 COPY .env.example .env
 
 # Expose FastAPI port
