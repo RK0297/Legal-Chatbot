@@ -441,6 +441,27 @@ python -m server.main
 * **Swagger API Documentation**: `http://localhost:8000/docs`
 * **System Health Endpoint**: `http://localhost:8000/api/health`
 
+### 9.4 Testing with Example Legal Documents & Indic Prompts
+
+A realistic, multi-page commercial legal agreement is provided in `example_documents/` for testing document attachment, clause extraction, and Hinglish query synthesis:
+
+* **File Location**: `example_documents/Commercial_Lease_Agreement.pdf` (and `.txt`)
+* **Document Scope**: Commercial lease covering lock-in periods, security deposits, cheque bounce penalties, subletting restrictions, and arbitration.
+
+#### Sample Test Queries
+
+1. **Lock-In & Deposit Forfeiture Inquiry (Hinglish)**:
+   > *"Mera agreement 11 months ke lock-in period ka hai, agar main 6 mahine me flat chhod doon toh kya security deposit wapas milega? Agreement me kya likha hai?"*
+   * *Expected Analysis*: Reads Clause 6(b) of the attached PDF, confirms that early departure before 11 months forfeits the entire INR 1,35,000 security deposit as liquidated damages, and evaluates enforceability under Section 74 of the Indian Contract Act, 1872.
+
+2. **Cheque Dishonour & Statutory Notice Inquiry (Hinglish)**:
+   > *"Agar rent ka cheque bounce ho jaye toh landlord kitna penalty laga sakta hai aur Section 138 ke tehat kya notice aayega?"*
+   * *Expected Analysis*: Reads Clause 7 of the attached PDF (INR 2,000 penalty + 18% penal interest) and cross-references Section 138 of the Negotiable Instruments Act, 1881 (15-day statutory demand notice).
+
+3. **Subletting & Eviction Protection Inquiry (Hinglish)**:
+   > *"Kya main is office space ko kisi third party ko sub-let kar sakta hoon? Aur kya landlord bina legal notice ke mujhe nikal sakta hai?"*
+   * *Expected Analysis*: Reads Clause 5 (strict prohibition on subletting without prior written consent) and Clause 9 (protection against unlawful dispossession under the Transfer of Property Act, 1882).
+
 ---
 
 ## 10. Docker Deployment
