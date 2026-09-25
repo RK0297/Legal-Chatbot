@@ -29,9 +29,8 @@ Kanoon provides structured, statutory legal information for ordinary citizens, a
 ### Key Capabilities
 * **Streaming Token Delivery (`POST /api/chat/stream`)**: Real-time Server-Sent Events (SSE) token generator with responsive streaming.
 * **Bar Council of India Compliance & Guardrails**:
-  * **Emergency Helpline Detection**: Automatically identifies urgent distress in queries (Domestic Violence `1091`, Cyber Crime `1930`, Childline / POCSO `1098`, NALSA Legal Aid `15100`, Police `112`) and surfaces actionable helpline details.
-  * **Confidence-Gated Advisory**: Rejects hallucinatory speculation when candidate relevance falls below calibrated thresholds.
-  * **Statutory Disclaimer Enforcement**: Standardized Advocates Act, 1961 disclaimers attached to all outputs.
+  * **Emergency Helpline Detection**: Automatically identifies urgent distress in queries across 5 categories (Domestic Violence `1091`, Cyber Crime `1930`, Childline / POCSO `1098`, NALSA Legal Aid `15100`, Police `112`) and surfaces actionable helpline details.
+  * **Statutory Disclaimer Enforcement**: Standardized Advocates Act, 1961 and Bar Council of India Rule 36 disclaimers attached to all consultations.
 * **Indic Multi-Lingual Processing**:
   * Automatic detection of Hindi (Devanagari script) and Hinglish (Hindi in Roman script).
   * Self-Querying translates colloquial idioms into formal statutory English search terms to query the legal database, then synthesizes responses in the user's selected language.
@@ -55,6 +54,7 @@ Kanoon provides structured, statutory legal information for ordinary citizens, a
 | **Evaluation Suite** | Custom IR Metrics (Recall@K, MRR, Precision@K), LLM-as-a-Judge | Automated benchmark runner scoring ground-truth retrieval, faithfulness, and answer relevance. |
 | **Web Interface** | HTML5, Tailwind CSS, Marked.js, Vanilla JavaScript | Zero-build frontend served directly from FastAPI, featuring real-time SSE streaming. |
 | **Containerization** | Docker, Docker Compose | Python 3.12-slim container with persistent volume mounts. |
+| **Corpus / Dataset** | Hugging Face (`viber1/indian-law-dataset`) | Public corpus of 24,607 Indian statutory Q&A pairs covering Constitution, IPC/BNS, CrPC/BNSS, and CPC. |
 
 ---
 
@@ -105,7 +105,6 @@ flowchart TD
 
     subgraph GuardrailsEngine["Compliance & Guardrails Layer"]
         EmergencyCheck["Emergency Distress Detector (1091, 1930, 1098, 15100)"]
-        ConfidenceCheck["Confidence / Score Evaluator"]
         DisclaimerCheck["Bar Council Rule 36 Disclaimer Attachment"]
     end
 
@@ -136,8 +135,7 @@ flowchart TD
     SelfQuery --> DenseSearch & SparseSearch
     DenseSearch & SparseSearch --> RRF
     RRF --> CrossRerank
-    CrossRerank --> ConfidenceCheck
-    ConfidenceCheck --> PromptBuilder
+    CrossRerank --> PromptBuilder
     PromptBuilder --> GroqLPU
     GroqLPU --> SSEGenerator
     SSEGenerator --> DisclaimerCheck
